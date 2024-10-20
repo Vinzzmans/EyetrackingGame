@@ -146,6 +146,7 @@ namespace OpenCvSharp
             }
         }
 
+
         [StructLayout(LayoutKind.Sequential)]
         public struct WParams
         {

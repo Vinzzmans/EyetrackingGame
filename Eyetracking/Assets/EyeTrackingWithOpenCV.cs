@@ -1,6 +1,7 @@
 using OpenCvSharp;
 using UnityEngine;
 using System.Collections.Generic;
+using OpenCvSharp.XFeatures2D;
 
 public class EyeTrackingWithOpenCV : MonoBehaviour
 {
@@ -10,6 +11,8 @@ public class EyeTrackingWithOpenCV : MonoBehaviour
     private CascadeClassifier eyeCascade;   // Für Augenerkennung
     public List<OpenCvSharp.Rect> detectedEyes = new List<OpenCvSharp.Rect>(); // Liste für erkannte Augen
     public List<OpenCvSharp.Rect> detectedFaces = new List<OpenCvSharp.Rect>(); // Liste für erkannte Gesichter
+
+    public SimpleBlobDetector detector;
 
     void Start()
     {
@@ -23,6 +26,15 @@ public class EyeTrackingWithOpenCV : MonoBehaviour
         // Lade Haarcascades für Gesichts- und Augenerkennung
         faceCascade = new CascadeClassifier("Assets/OpenCV+Unity/Demo/Face_Detector/haarcascade_frontalface_default.xml");
         eyeCascade = new CascadeClassifier("Assets/OpenCV+Unity/Demo/Face_Detector/haarcascade_eye.xml");
+
+
+        // Set Up detector
+        SimpleBlobDetector.Params detector_params = new SimpleBlobDetector.Params();
+        detector_params.FilterByArea = true;
+        detector_params.MaxArea = 1500;
+
+        detector = SimpleBlobDetector.Create(detector_params);
+
 
         if (faceCascade.Empty() || eyeCascade.Empty())
         {
@@ -54,8 +66,13 @@ public class EyeTrackingWithOpenCV : MonoBehaviour
 
         Debug.Log("Frame captured successfully. Size: " + frame.Size());
 
+       
+        // Not Sure if needed 
+        var greyedFrame = frame.CvtColor(ColorConversionCodes.BGR2GRAY); //.Threshold(127, 255, ThresholdTypes.BinaryInv | ThresholdTypes.Otsu);
+
+
         // Gesichter erkennen
-        OpenCvSharp.Rect[] faces = faceCascade.DetectMultiScale(frame, scaleFactor: 1.1, minNeighbors: 5);
+        OpenCvSharp.Rect[] faces = faceCascade.DetectMultiScale(greyedFrame, scaleFactor: 1.3, minNeighbors: 5);
         detectedFaces.Clear(); // Zurücksetzen der Liste der erkannten Gesichter
 
         // Durch alle erkannten Gesichter gehen
@@ -65,21 +82,31 @@ public class EyeTrackingWithOpenCV : MonoBehaviour
             Debug.Log($"Face detected at: {face.X}, {face.Y}");
 
             // Suche in jedem Gesicht nach Augen
-            Mat faceRegion = new Mat(frame, face); // Teilbereich des Bildes für das Gesicht
-            OpenCvSharp.Rect[] eyes = eyeCascade.DetectMultiScale(faceRegion, scaleFactor: 1.1, minNeighbors: 5);
+            Mat faceRegion = new Mat(greyedFrame, face); // Teilbereich des Bildes für das Gesicht
+            
+            OpenCvSharp.Rect[] eyes = eyeCascade.DetectMultiScale(faceRegion, scaleFactor: 1.3, minNeighbors: 5);
+
+
 
             detectedEyes.Clear(); // Zurücksetzen der Liste der erkannten Augen
             foreach (var eye in eyes)
             {
                 // Die Position der Augen relativ zum gesamten Bild berechnen
                 OpenCvSharp.Rect eyeInFullImage = new OpenCvSharp.Rect(
-                    face.X + eye.X, face.Y + eye.Y, eye.Width, eye.Height
-                );
+                    face.X + eye.X, face.Y + eye.Y, eye.Width, eye.Height);
+
+               
+
                 detectedEyes.Add(eyeInFullImage);
+
+                
+
                 Debug.Log($"Eye detected at: {eyeInFullImage.X}, {eyeInFullImage.Y}");
             }
         }
     }
+
+
 
     void OnDrawGizmos()
     {
@@ -91,7 +118,7 @@ public class EyeTrackingWithOpenCV : MonoBehaviour
             facePosition = Camera.main.ScreenToWorldPoint(new Vector3(facePosition.x, facePosition.y, 10)); // z=10 für Sichtbarkeit
 
             // Zeichne blaues Rechteck um erkannten Kopf
-            Gizmos.DrawWireCube(facePosition, new Vector3(0.3f, 0.3f, 1)); // Größe anpassen
+            Gizmos.DrawWireCube(facePosition*-1, new Vector3(5f, 5f, 1)); // Größe anpassen
         }
 
         // Setze Gizmo-Farbe für Augen
@@ -102,7 +129,7 @@ public class EyeTrackingWithOpenCV : MonoBehaviour
             eyePosition = Camera.main.ScreenToWorldPoint(new Vector3(eyePosition.x, eyePosition.y, 10)); // z=10 für Sichtbarkeit
 
             // Zeichne rotes Rechteck um erkannten Augenbereich
-            Gizmos.DrawWireCube(eyePosition, new Vector3(0.1f, 0.05f, 1)); // Größe anpassen
+            Gizmos.DrawWireCube(eyePosition * -1, new Vector3(0.5f, 0.25f, 1)); // Größe anpassen
         }
     }
 }
